@@ -41,3 +41,13 @@ select,input.search{border:1px solid #cbd5e1;border-radius:999px;padding:8px 12p
 .pick-matrix th:not(:first-child){
   text-align:center;
 }
+
+
+/* Group banding for By prediction type > Group match results */
+.group-results-table tr.group-band-a td{background:#f0f9ff;}
+.group-results-table tr.group-band-b td{background:#ffffff;}
+.group-results-table tr.group-start td{border-top:3px solid #bae6fd;}
+.group-results-table tr.group-start td:first-child{color:#075985;}
+.sticky-first-col .group-results-table tr.group-band-a td:first-child{background:#e0f2fe;}
+.sticky-first-col .group-results-table tr.group-band-b td:first-child{background:#fff;}
+.group-results-table tr:hover td{background:#eaf6ff;}

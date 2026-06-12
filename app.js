@@ -42,6 +42,22 @@ function buildTable(headers, rows, opts = {}) {
   return `<table class="${cls}"><thead><tr>${headers.map(h => `<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${rows.map(row => `<tr>${row.map((cell, i) => `<td class="${typeof cell === 'number' || /^-?\d+(\.\d+)?$/.test(clean(cell)) ? 'num' : ''}">${esc(cell)}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
 }
 
+
+function buildGroupMatchResultsTable(headers, rows) {
+  return `<table class="category-table group-results-table"><thead><tr>${headers.map(h => `<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${rows.map((row, idx) => {
+    const groupIndex = Math.floor(idx / 6);
+    const groupName = String.fromCharCode(65 + groupIndex);
+    const bandClass = groupIndex % 2 === 0 ? 'group-band-a' : 'group-band-b';
+    const startClass = idx % 6 === 0 ? ' group-start' : '';
+    const cells = row.map((cell, i) => {
+      const value = i === 0 && idx % 6 === 0 ? `Group ${groupName} — ${cell}` : cell;
+      const numClass = typeof cell === 'number' || /^-?\d+(\.\d+)?$/.test(clean(cell)) ? ' num' : '';
+      return `<td class="${numClass}">${esc(value)}</td>`;
+    }).join('');
+    return `<tr class="${bandClass}${startClass}">${cells}</tr>`;
+  }).join('')}</tbody></table>`;
+}
+
 function rankLabels(board) {
   const counts = {};
   board.forEach(p => { counts[p.total] = (counts[p.total] || 0) + 1; });
@@ -222,6 +238,10 @@ function renderCategory() {
   }
   const headers = ['Prediction'].concat(STATE.participants);
   const rows = section.rows.map(row => [row.label].concat(STATE.participants.map(p => row.values.find(v => v.person === p)?.value || '')));
+  if (id === 'results') {
+    $('categoryPredictions').innerHTML = `<div class="table-wrap sticky-first-col">${buildGroupMatchResultsTable(headers, rows)}</div>`;
+    return;
+  }
   $('categoryPredictions').innerHTML = `<div class="table-wrap sticky-first-col">${buildTable(headers, rows, { className: 'category-table' })}</div>`;
 }
 
