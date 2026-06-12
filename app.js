@@ -42,6 +42,22 @@ function buildTable(headers, rows, opts = {}) {
   return `<table class="${cls}"><thead><tr>${headers.map(h => `<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${rows.map(row => `<tr>${row.map((cell, i) => `<td class="${typeof cell === 'number' || /^-?\d+(\.\d+)?$/.test(clean(cell)) ? 'num' : ''}">${esc(cell)}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
 }
 
+function rankLabels(board) {
+  const counts = {};
+  board.forEach(p => { counts[p.total] = (counts[p.total] || 0) + 1; });
+  let currentRank = 0;
+  let previousTotal = null;
+  return board.map((p, i) => {
+    if (p.total !== previousTotal) {
+      currentRank = i + 1;
+      previousTotal = p.total;
+    }
+    const medal = currentRank === 1 ? '🥇 ' : currentRank === 2 ? '🥈 ' : currentRank === 3 ? '🥉 ' : '';
+    const tied = counts[p.total] > 1 ? '=' : '';
+    return { name: p.name, label: `${medal}#${currentRank}${tied}` };
+  });
+}
+
 function trimTable(table) {
   if (!Array.isArray(table)) return [];
   let rows = table.map(r => Array.isArray(r) ? r.map(clean) : []);
@@ -54,7 +70,7 @@ function trimTable(table) {
 function parseScoreboard(table) {
   table = trimTable(table);
   const header = table[0] || [];
-  const players = header.slice(1).filter(Boolean);
+  const players = header.slice(1).filter(name => name && clean(name).toLowerCase() !== 'points');
   const rows = table.slice(1).filter(r => clean(r[0]));
   const totalRow = rows.find(r => clean(r[0]).toLowerCase() === 'total') || [];
   return players.map((name, idx) => {
@@ -68,14 +84,14 @@ function parseScoreboard(table) {
 function renderLeaderboard() {
   const board = parseScoreboard(STATE.summary.scoreboard || []);
   const q = clean($('leaderboardSearch').value).toLowerCase();
+  const labels = Object.fromEntries(rankLabels(board).map(r => [r.name, r.label]));
   const filtered = board.filter(p => p.name.toLowerCase().includes(q));
   const headers = ['Rank', 'Player', 'Total'].concat((board[0]?.categories || []).filter(c => c.category.toLowerCase() !== 'total').map(c => c.category));
-  const rows = filtered.map((p, i) => {
-    const rank = board.findIndex(x => x.name === p.name) + 1;
+  const rows = filtered.map((p) => {
     const cat = p.categories.filter(c => c.category.toLowerCase() !== 'total').map(c => c.raw);
-    return [`#${rank}`, p.name, p.total, ...cat];
+    return [labels[p.name] || '', p.name, p.total, ...cat];
   });
-  $('leaderboardTable').innerHTML = buildTable(headers, rows);
+  $('leaderboardTable').innerHTML = buildTable(headers, rows, { className: 'leaderboard-table' });
 }
 
 function parsePredictions(table) {
@@ -149,7 +165,7 @@ function renderCategory() {
   if (!section) return;
   const headers = ['Prediction'].concat(STATE.participants);
   const rows = section.rows.map(row => [row.label].concat(STATE.participants.map(p => row.values.find(v => v.person === p)?.value || '')));
-  $('categoryPredictions').innerHTML = `<div class="table-wrap">${buildTable(headers, rows)}</div>`;
+  $('categoryPredictions').innerHTML = `<div class="table-wrap">${buildTable(headers, rows, { className: 'category-table' })}</div>`;
 }
 
 function renderScoreDetail() {
@@ -193,15 +209,10 @@ function initTabs() {
 function initControls() {
   const peopleOptions = STATE.participants.map(p => `<option>${esc(p)}</option>`).join('');
   $('personSelect').innerHTML = peopleOptions;
-  $('scorePersonSelect').innerHTML = peopleOptions;
   $('categorySelect').innerHTML = STATE.predictionSections.map(s => `<option value="${esc(s.id)}">${esc(s.title)}</option>`).join('');
-  const rawSheets = [ ['scoreboard','Scoreboard'], ['gameResults','Game results'], ['teams','Team summary'], ['scorers','Scorers summary'], ['bonus','Bonus questions'] ];
-  $('rawSheetSelect').innerHTML = rawSheets.map(([k, n]) => `<option value="${k}">${n}</option>`).join('');
   $('leaderboardSearch').addEventListener('input', renderLeaderboard);
   $('personSelect').addEventListener('change', renderPerson);
   $('categorySelect').addEventListener('change', renderCategory);
-  $('scorePersonSelect').addEventListener('change', renderScoreDetail);
-  $('rawSheetSelect').addEventListener('change', renderRawSheet);
 }
 
 function boot() {
@@ -213,7 +224,7 @@ function boot() {
     $('playerCount').textContent = String(STATE.participants.length);
     setStatus('Live');
     initControls();
-    renderLeaderboard(); renderPerson(); renderCategory(); renderScoreDetail(); renderRawSheet();
+    renderLeaderboard(); renderPerson(); renderCategory();
   }).catch(err => {
     setStatus('Setup needed');
     $('setupWarning').hidden = false;
