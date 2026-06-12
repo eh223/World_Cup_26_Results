@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>World Cup Predictor 2026 — Results</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="hero">
+    <div class="wrap">
+      <p class="eyebrow">Friends & Family Competition</p>
+      <h1>World Cup Predictor 2026</h1>
+      <p class="lede">Leaderboard, prediction explorer and scoring breakdowns pulled automatically from the Google Sheet.</p>
+      <div class="hero-stats">
+        <div class="hero-card"><span>Status</span><strong id="loadStatus">Loading…</strong></div>
+        <div class="hero-card"><span>Last updated</span><strong id="lastUpdated">—</strong></div>
+        <div class="hero-card"><span>Players</span><strong id="playerCount">—</strong></div>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <div id="setupWarning" class="notice" hidden></div>
+
+    <nav class="tabs" aria-label="Views">
+      <button data-tab="leaderboard" class="active">Leaderboard</button>
+      <button data-tab="person">By person</button>
+      <button data-tab="category">By prediction type</button>
+      <button data-tab="scores">Score detail</button>
+      <button data-tab="raw">Sheet views</button>
+    </nav>
+
+    <section id="leaderboard" class="panel active">
+      <div class="section-head">
+        <div><h2>Live scoreboard</h2><p>Totals and category scores from the Scoreboard sheet.</p></div>
+        <input id="leaderboardSearch" class="search" placeholder="Search player…" />
+      </div>
+      <div id="leaderboardTable" class="table-wrap"></div>
+    </section>
+
+    <section id="person" class="panel">
+      <div class="section-head">
+        <div><h2>Predictions by person</h2><p>Select someone to see their full set of predictions.</p></div>
+        <select id="personSelect"></select>
+      </div>
+      <div id="personPredictions"></div>
+    </section>
+
+    <section id="category" class="panel">
+      <div class="section-head">
+        <div><h2>Predictions by type</h2><p>Compare everyone’s picks for a particular section.</p></div>
+        <select id="categorySelect"></select>
+      </div>
+      <div id="categoryPredictions"></div>
+    </section>
+
+    <section id="scores" class="panel">
+      <div class="section-head">
+        <div><h2>Score detail</h2><p>Category totals and the detailed individual scoring sheet.</p></div>
+        <select id="scorePersonSelect"></select>
+      </div>
+      <div id="scoreSummary"></div>
+      <div id="personScoreDetail" class="table-wrap"></div>
+    </section>
+
+    <section id="raw" class="panel">
+      <div class="section-head">
+        <div><h2>Sheet views</h2><p>Useful read-only views from the scoring workbook.</p></div>
+        <select id="rawSheetSelect"></select>
+      </div>
+      <div id="rawSheet" class="table-wrap"></div>
+    </section>
+  </main>
+
+  <footer class="wrap footer">Unofficial predictor site. Data comes from the organiser’s Google Sheet.</footer>
+  <script src="app.js"></script>
+</body>
+</html>
