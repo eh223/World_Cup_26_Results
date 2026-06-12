@@ -27,8 +27,6 @@
       <button data-tab="leaderboard" class="active">Leaderboard</button>
       <button data-tab="person">By person</button>
       <button data-tab="category">By prediction type</button>
-      <button data-tab="scores">Score detail</button>
-      <button data-tab="raw">Sheet views</button>
     </nav>
 
     <section id="leaderboard" class="panel active">
@@ -55,22 +53,6 @@
       <div id="categoryPredictions"></div>
     </section>
 
-    <section id="scores" class="panel">
-      <div class="section-head">
-        <div><h2>Score detail</h2><p>Category totals and the detailed individual scoring sheet.</p></div>
-        <select id="scorePersonSelect"></select>
-      </div>
-      <div id="scoreSummary"></div>
-      <div id="personScoreDetail" class="table-wrap"></div>
-    </section>
-
-    <section id="raw" class="panel">
-      <div class="section-head">
-        <div><h2>Sheet views</h2><p>Useful read-only views from the scoring workbook.</p></div>
-        <select id="rawSheetSelect"></select>
-      </div>
-      <div id="rawSheet" class="table-wrap"></div>
-    </section>
   </main>
 
   <footer class="wrap footer">Unofficial predictor site. Data comes from the organiser’s Google Sheet.</footer>

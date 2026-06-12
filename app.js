@@ -159,13 +159,70 @@ function renderPerson() {
   $('personPredictions').innerHTML = html || '<p class="muted">No predictions found.</p>';
 }
 
+function splitPicks(value) {
+  return clean(value)
+    .split(/[,;|\n]+/)
+    .map(v => v.trim())
+    .filter(Boolean);
+}
+
+function normalisePick(value) {
+  return clean(value).toLowerCase().replace(/\s+/g, ' ');
+}
+
+function buildPickMatrixRows(rows) {
+  const items = [];
+  const seen = new Set();
+  rows.forEach(row => {
+    row.values.forEach(v => {
+      splitPicks(v.value).forEach(item => {
+        const key = normalisePick(item);
+        if (!seen.has(key)) {
+          seen.add(key);
+          items.push(item);
+        }
+      });
+    });
+  });
+  return items.sort((a, b) => a.localeCompare(b)).map(item => {
+    const itemKey = normalisePick(item);
+    return [item].concat(STATE.participants.map(person => {
+      const picked = rows.some(row => {
+        const value = row.values.find(v => v.person === person)?.value || '';
+        return splitPicks(value).some(pick => normalisePick(pick) === itemKey);
+      });
+      return picked ? '✕' : '';
+    }));
+  });
+}
+
+function renderPickMatrix(section) {
+  const headers = ['Pick'].concat(STATE.participants);
+
+  if (section.id === 'team-goals') {
+    const tables = section.rows.map(row => {
+      const title = row.label || 'Team picks';
+      const matrixRows = buildPickMatrixRows([row]);
+      return `<div class="group"><h3>${esc(title)}</h3><div class="table-wrap sticky-first-col">${buildTable(headers, matrixRows, { className: 'category-table pick-matrix' })}</div></div>`;
+    }).join('');
+    return tables || '<p class="muted">No team goal picks found.</p>';
+  }
+
+  const matrixRows = buildPickMatrixRows(section.rows);
+  return `<div class="table-wrap sticky-first-col">${buildTable(headers, matrixRows, { className: 'category-table pick-matrix' })}</div>`;
+}
+
 function renderCategory() {
   const id = $('categorySelect').value;
   const section = STATE.predictionSections.find(s => s.id === id);
   if (!section) return;
+  if (id === 'team-goals' || id === 'scorers') {
+    $('categoryPredictions').innerHTML = renderPickMatrix(section);
+    return;
+  }
   const headers = ['Prediction'].concat(STATE.participants);
   const rows = section.rows.map(row => [row.label].concat(STATE.participants.map(p => row.values.find(v => v.person === p)?.value || '')));
-  $('categoryPredictions').innerHTML = `<div class="table-wrap">${buildTable(headers, rows, { className: 'category-table' })}</div>`;
+  $('categoryPredictions').innerHTML = `<div class="table-wrap sticky-first-col">${buildTable(headers, rows, { className: 'category-table' })}</div>`;
 }
 
 function renderScoreDetail() {
