@@ -23,14 +23,24 @@ function getSummary_() {
     predictions: getSheetValues_('Predictions'),
     scoreboard: getSheetValues_('Scoreboard'),
     gameResults: getSheetValues_('Game_Results'),
+    matchDates: getSheetValues_('Match dates'),
     teams: getSheetValues_('Teams'),
     scorers: getSheetValues_('Scorers'),
     bonus: getSheetValues_('Bonus Qs')
   };
 }
 
+const SPREADSHEET_ID = 'PASTE_YOUR_SPREADSHEET_ID_HERE';
+
+function getSpreadsheet_() {
+  if (SPREADSHEET_ID && SPREADSHEET_ID.indexOf('PASTE_') === -1) {
+    return SpreadsheetApp.openById(SPREADSHEET_ID);
+  }
+  return SpreadsheetApp.getActiveSpreadsheet();
+}
+
 function getSheetValues_(sheetName) {
-  https://docs.google.com/spreadsheets/d/1qfWV73gg20PFDuBllVcIj2YhNd9hSg1nndhsNdJ7FhQ/edit?gid=491008128#gid=491008128;
+  const ss = getSpreadsheet_();
   const sheet = ss.getSheetByName(sheetName);
   if (!sheet) return [];
   const range = sheet.getDataRange();

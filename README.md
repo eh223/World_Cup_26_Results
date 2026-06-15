@@ -70,3 +70,23 @@ This version expects the `Predictions` sheet to use the newer structure:
 - Column D onwards: participant predictions
 
 Match result and score prediction views are ordered by Column A. Completed match predictions are coloured green for correct and red for wrong, using the `Game_Results` sheet. The front page also shows the latest completed match included in the results.
+
+
+## Match dates sheet
+
+This version reads the match display order from the `Match dates` tab. That tab should have:
+
+- Column A: display label, e.g. `13th - Match 2`
+- Column B: match name, e.g. `Brazil v Morocco`
+
+The website uses that sheet to order match results and score predictions, and to show the latest completed match in the header.
+
+## Spreadsheet ID in Apps Script
+
+In `Code.gs`, replace:
+
+```js
+const SPREADSHEET_ID = 'PASTE_YOUR_SPREADSHEET_ID_HERE';
+```
+
+with only the long ID from your Google Sheet URL, not the whole URL.

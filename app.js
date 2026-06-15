@@ -1,5 +1,5 @@
 // Paste your Google Apps Script /exec URL between the quotes.
-// Example: const DATA_URL = 'https://script.google.com/macros/s/https://script.google.com/macros/s/AKfycbw0SJml5YcUY5IzaeFTDwQrNrL1JmuxGNTUch2y2NSQ43wfCImSUYBjkz2aJi1abauYZQ/exec';
+// Example: const DATA_URL = 'https://script.google.com/macros/s/AKfycb.../exec';
 const DATA_URL = 'https://script.google.com/macros/s/AKfycbw0SJml5YcUY5IzaeFTDwQrNrL1JmuxGNTUch2y2NSQ43wfCImSUYBjkz2aJi1abauYZQ/exec';
 
 let STATE = { summary: null, predictionSections: [], participants: [] };
@@ -57,6 +57,31 @@ function buildTable(headers, rows, opts = {}) {
     const klass = cellClass(cell, cellExtraClass(cell, i, row, rIdx));
     return `<td class="${klass}">${esc(cellContent(cell))}</td>`;
   }).join('')}</tr>`).join('')}</tbody></table>`;
+}
+
+
+function buildMatchDateLookup() {
+  const table = trimTable(STATE.summary?.matchDates || []);
+  const byMatch = {};
+  const byCode = {};
+  table.forEach((r, idx) => {
+    const dateLabel = clean(r[0]);
+    const matchLabel = clean(r[1]);
+    if (!dateLabel || !matchLabel) return;
+    byMatch[normaliseMatchLabel(matchLabel)] = dateLabel;
+    // If this sheet is in the same order as A1-A6, B1-B6, etc, keep a fallback by code too.
+    const groupIndex = Math.floor((idx - 1) / 6);
+    const matchNum = ((idx - 1) % 6) + 1;
+    if (groupIndex >= 0 && groupIndex < 12) {
+      const code = String.fromCharCode(65 + groupIndex) + matchNum;
+      byCode[code] = dateLabel;
+    }
+  });
+  return { byMatch, byCode };
+}
+
+function normaliseMatchLabel(label) {
+  return clean(label).toLowerCase().replace(/\s+/g, ' ');
 }
 
 function parseMatchDateLabel(label) {
@@ -213,10 +238,15 @@ function parsePredictions(table) {
     bonus_average_goals_per_game: 'Average goals per game', bonus_trump_truthsocial_posts: 'TruthSocial posts',
     sweepstakeTeam: 'Sweepstake team'
   };
+  const matchDates = buildMatchDateLookup();
   rows.forEach((r, originalIndex) => {
-    const dateLabel = clean(r[0]);
-    const key = clean(r[1]);
-    const label = clean(r[2]) || key;
+    const first = clean(r[0]);
+    const second = clean(r[1]);
+    const third = clean(r[2]);
+    const firstLooksLikeDate = /^\d+(?:st|nd|rd|th)?\s*-\s*Match\s*\d+/i.test(first);
+    const key = firstLooksLikeDate ? second : first;
+    const label = firstLooksLikeDate ? (third || key) : (second || key);
+    const dateLabel = firstLooksLikeDate ? first : (matchDates.byMatch[normaliseMatchLabel(label)] || matchDates.byCode[key] || '');
     const values = participants.map((p, i) => ({ person: p, value: clean(r[i + playerStart]) }));
     const item = { key, label, dateLabel, values, originalIndex };
     if (/^[A-L][1-6]$/i.test(key)) {
