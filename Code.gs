@@ -30,7 +30,7 @@ function getSummary_() {
 }
 
 function getSheetValues_(sheetName) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  https://docs.google.com/spreadsheets/d/1qfWV73gg20PFDuBllVcIj2YhNd9hSg1nndhsNdJ7FhQ/edit?gid=491008128#gid=491008128;
   const sheet = ss.getSheetByName(sheetName);
   if (!sheet) return [];
   const range = sheet.getDataRange();
