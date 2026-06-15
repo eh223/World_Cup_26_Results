@@ -1,6 +1,6 @@
 // Paste your Google Apps Script /exec URL between the quotes.
-// Example: const DATA_URL = 'https://script.google.com/macros/s/AKfycb.../exec';
-const DATA_URL = 'https://script.google.com/macros/s/AKfycbwXL4TerukipOODx2-DfGFyNDDvUP7c6_mrRWWAWSKzUKJllTyuNY0k_b53aYGYx1pk/exec';
+// Example: const DATA_URL = 'https://script.google.com/macros/s/AKfycbzZLAdfkbi59J7TYDZ06XTIgGnrLYpa2RVOfiSZK_073fpkLVEPM__p5kD5asvX2Mv9/exec';
+const DATA_URL = 'PASTE_YOUR_GOOGLE_APPS_SCRIPT_URL_HERE';
 
 let STATE = { summary: null, predictionSections: [], participants: [] };
 
@@ -37,24 +37,98 @@ function jsonp(params = {}) {
 
 function setStatus(text) { $('loadStatus').textContent = text; }
 
+function cellContent(cell) {
+  if (cell && typeof cell === 'object' && !Array.isArray(cell)) return cell.value ?? '';
+  return cell;
+}
+function cellClass(cell, extra = '') {
+  const classes = [];
+  const value = cellContent(cell);
+  if (typeof value === 'number' || /^-?\d+(\.\d+)?$/.test(clean(value))) classes.push('num');
+  if (cell && typeof cell === 'object' && cell.className) classes.push(cell.className);
+  if (extra) classes.push(extra);
+  return classes.join(' ');
+}
 function buildTable(headers, rows, opts = {}) {
   const cls = opts.className || '';
-  return `<table class="${cls}"><thead><tr>${headers.map(h => `<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${rows.map(row => `<tr>${row.map((cell, i) => `<td class="${typeof cell === 'number' || /^-?\d+(\.\d+)?$/.test(clean(cell)) ? 'num' : ''}">${esc(cell)}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+  const rowClass = opts.rowClass || (() => '');
+  const cellExtraClass = opts.cellClass || (() => '');
+  return `<table class="${cls}"><thead><tr>${headers.map(h => `<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${rows.map((row, rIdx) => `<tr class="${rowClass(row, rIdx)}">${row.map((cell, i) => {
+    const klass = cellClass(cell, cellExtraClass(cell, i, row, rIdx));
+    return `<td class="${klass}">${esc(cellContent(cell))}</td>`;
+  }).join('')}</tr>`).join('')}</tbody></table>`;
 }
 
+function parseMatchDateLabel(label) {
+  const m = clean(label).match(/^(\d+)(?:st|nd|rd|th)?\s*-\s*Match\s*(\d+)/i);
+  if (!m) return { day: 999, match: 999 };
+  return { day: Number(m[1]), match: Number(m[2]) };
+}
 
-function buildGroupMatchResultsTable(headers, rows) {
-  return `<table class="category-table group-results-table"><thead><tr>${headers.map(h => `<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${rows.map((row, idx) => {
-    const groupIndex = Math.floor(idx / 6);
-    const groupName = String.fromCharCode(65 + groupIndex);
-    const bandClass = groupIndex % 2 === 0 ? 'group-band-a' : 'group-band-b';
-    const startClass = idx % 6 === 0 ? ' group-start' : '';
-    const cells = row.map((cell, i) => {
-      const value = i === 0 && idx % 6 === 0 ? `Group ${groupName} — ${cell}` : cell;
-      const numClass = typeof cell === 'number' || /^-?\d+(\.\d+)?$/.test(clean(cell)) ? ' num' : '';
-      return `<td class="${numClass}">${esc(value)}</td>`;
-    }).join('');
-    return `<tr class="${bandClass}${startClass}">${cells}</tr>`;
+function compareMatchOrder(a, b) {
+  const ao = parseMatchDateLabel(a.dateLabel || a.orderLabel || '');
+  const bo = parseMatchDateLabel(b.dateLabel || b.orderLabel || '');
+  return ao.day - bo.day || ao.match - bo.match || (a.key || '').localeCompare(b.key || '');
+}
+
+function displayMatchLabel(item) {
+  return item.dateLabel ? `${item.dateLabel} — ${item.label}` : item.label;
+}
+
+function actualResultsMap() {
+  const table = trimTable(STATE.summary?.gameResults || []);
+  const map = {};
+  table.slice(1).forEach(r => {
+    const key = clean(r[0]);
+    if (!key) return;
+    const match = clean(r[1]);
+    const winner = clean(r[5]);
+    const score = clean(r[6]);
+    const firstGoals = clean(r[7]);
+    const secondGoals = clean(r[8]);
+    const complete = winner && winner !== 'N/A' && winner !== '-' && firstGoals !== '' && secondGoals !== '';
+    map[key] = { key, match, winner, score, complete };
+  });
+  return map;
+}
+
+function predictionCell(value, row) {
+  const actual = actualResultsMap()[row.key];
+  if (!actual || !actual.complete || !clean(value)) return value;
+  const correct = row.predictionType === 'score'
+    ? clean(value) === actual.score
+    : clean(value) === actual.winner;
+  return { value, className: correct ? 'prediction-correct' : 'prediction-wrong' };
+}
+
+function latestCompletedMatch() {
+  const actual = actualResultsMap();
+  const resultRows = (STATE.predictionSections.find(s => s.id === 'results')?.rows || []);
+  let latest = null;
+  resultRows.forEach((row, idx) => {
+    const a = actual[row.key];
+    if (!a || !a.complete) return;
+    latest = { ...row, idx, match: a.match || row.label };
+  });
+  return latest;
+}
+
+function renderUpdatedToInclude() {
+  const latest = latestCompletedMatch();
+  const el = $('lastIncluded');
+  if (!el) return;
+  el.textContent = latest ? `${latest.dateLabel || latest.key} — ${latest.match || latest.label}` : 'No completed matches yet';
+}
+
+function buildMatchPredictionsTable(headers, rows) {
+  return `<table class="category-table match-order-table"><thead><tr>${headers.map(h => `<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${rows.map((row, idx) => {
+    const item = row.__item || {};
+    const order = parseMatchDateLabel(item.dateLabel || '');
+    const bandClass = Number.isFinite(order.day) && order.day % 2 === 0 ? 'date-band-a' : 'date-band-b';
+    const prev = idx > 0 ? rows[idx - 1].__item : null;
+    const dateStart = !prev || clean(prev.dateLabel) !== clean(item.dateLabel) ? ' date-start' : '';
+    const cells = row.cells.map((cell, i) => `<td class="${cellClass(cell)}">${esc(cellContent(cell))}</td>`).join('');
+    return `<tr class="${bandClass}${dateStart}">${cells}</tr>`;
   }).join('')}</tbody></table>`;
 }
 
@@ -113,8 +187,10 @@ function renderLeaderboard() {
 function parsePredictions(table) {
   table = trimTable(table);
   const header = table[0] || [];
-  const participants = header.slice(2).filter(Boolean);
-  const rows = table.slice(1).filter(r => clean(r[0]) || clean(r[1]));
+  const firstPlayerCol = header.findIndex(h => clean(h).toLowerCase() && clean(h).toLowerCase() !== 'name');
+  const playerStart = firstPlayerCol >= 0 ? firstPlayerCol : 3;
+  const participants = header.slice(playerStart).filter(Boolean);
+  const rows = table.slice(1).filter(r => clean(r[1]) || clean(r[2]));
   const sections = [
     { id: 'results', title: 'Group match results', rows: [] },
     { id: 'scores', title: 'Score predictions', rows: [] },
@@ -137,14 +213,16 @@ function parsePredictions(table) {
     bonus_average_goals_per_game: 'Average goals per game', bonus_trump_truthsocial_posts: 'TruthSocial posts',
     sweepstakeTeam: 'Sweepstake team'
   };
-  rows.forEach(r => {
-    const key = clean(r[0]);
-    const label = clean(r[1]) || key;
-    const values = participants.map((p, i) => ({ person: p, value: clean(r[i + 2]) }));
-    const item = { key, label, values };
+  rows.forEach((r, originalIndex) => {
+    const dateLabel = clean(r[0]);
+    const key = clean(r[1]);
+    const label = clean(r[2]) || key;
+    const values = participants.map((p, i) => ({ person: p, value: clean(r[i + playerStart]) }));
+    const item = { key, label, dateLabel, values, originalIndex };
     if (/^[A-L][1-6]$/i.test(key)) {
       seenMatchCodes[key] = (seenMatchCodes[key] || 0) + 1;
-      byId[seenMatchCodes[key] === 1 ? 'results' : 'scores'].rows.push(item);
+      const predictionType = seenMatchCodes[key] === 1 ? 'result' : 'score';
+      byId[predictionType === 'result' ? 'results' : 'scores'].rows.push({ ...item, predictionType });
     } else if (['R16','R8','R4','R2','RW'].includes(key)) {
       const map = { R16:'r16', R8:'r8', R4:'r4', R2:'r2', RW:'winner' };
       byId[map[key]].rows.push(item);
@@ -154,10 +232,12 @@ function parsePredictions(table) {
       byId['scorers'].rows.push({ ...item, label: label.replace('players_', '').replace('_', ' ') });
     } else if (key.startsWith('bonus_') || key === 'sweepstakeTeam') {
       byId['bonus'].rows.push({ ...item, label: bonusNames[key] || key });
-    } else if (key && !clean(r[1]) && r.slice(2).some(Boolean)) {
+    } else if (key && !clean(r[2]) && r.slice(playerStart).some(Boolean)) {
       byId['group-ranks'].rows.push(item);
     }
   });
+  byId.results.rows.sort(compareMatchOrder);
+  byId.scores.rows.sort(compareMatchOrder);
   STATE.participants = participants;
   return sections.filter(s => s.rows.length);
 }
@@ -168,7 +248,9 @@ function renderPerson() {
     const pairs = section.rows.map(row => {
       const val = row.values.find(v => v.person === name)?.value || '';
       if (!val) return '';
-      return `<div class="kv"><b>${esc(row.label)}</b><span>${esc(val)}</span></div>`;
+      const label = (section.id === 'results' || section.id === 'scores') ? displayMatchLabel(row) : row.label;
+      const displayVal = (section.id === 'results' || section.id === 'scores') ? predictionCell(val, row) : val;
+      return `<div class="kv"><b>${esc(label)}</b><span class="${cellClass(displayVal)}">${esc(cellContent(displayVal))}</span></div>`;
     }).filter(Boolean).join('');
     return pairs ? `<div class="group"><h3>${esc(section.title)}</h3><div class="prediction-card">${pairs}</div></div>` : '';
   }).join('');
@@ -237,11 +319,15 @@ function renderCategory() {
     return;
   }
   const headers = ['Prediction'].concat(STATE.participants);
-  const rows = section.rows.map(row => [row.label].concat(STATE.participants.map(p => row.values.find(v => v.person === p)?.value || '')));
-  if (id === 'results') {
-    $('categoryPredictions').innerHTML = `<div class="table-wrap sticky-first-col">${buildGroupMatchResultsTable(headers, rows)}</div>`;
+  if (id === 'results' || id === 'scores') {
+    const matchRows = section.rows.map(row => ({
+      __item: row,
+      cells: [displayMatchLabel(row)].concat(STATE.participants.map(p => predictionCell(row.values.find(v => v.person === p)?.value || '', row)))
+    }));
+    $('categoryPredictions').innerHTML = `<div class="table-wrap sticky-first-col">${buildMatchPredictionsTable(headers, matchRows)}</div>`;
     return;
   }
+  const rows = section.rows.map(row => [row.label].concat(STATE.participants.map(p => row.values.find(v => v.person === p)?.value || '')));
   $('categoryPredictions').innerHTML = `<div class="table-wrap sticky-first-col">${buildTable(headers, rows, { className: 'category-table' })}</div>`;
 }
 
@@ -298,6 +384,7 @@ function boot() {
     STATE.summary = data;
     STATE.predictionSections = parsePredictions(data.predictions || []);
     $('lastUpdated').textContent = data.generatedAt ? new Date(data.generatedAt).toLocaleString() : 'Just now';
+    renderUpdatedToInclude();
     $('playerCount').textContent = String(STATE.participants.length);
     setStatus('Live');
     initControls();

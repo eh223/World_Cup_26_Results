@@ -51,3 +51,18 @@ select,input.search{border:1px solid #cbd5e1;border-radius:999px;padding:8px 12p
 .sticky-first-col .group-results-table tr.group-band-a td:first-child{background:#e0f2fe;}
 .sticky-first-col .group-results-table tr.group-band-b td:first-child{background:#fff;}
 .group-results-table tr:hover td{background:#eaf6ff;}
+
+/* Latest match and correctness colouring */
+.hero-card-wide{min-width:260px;flex:1.5}
+.prediction-correct{color:#15803d !important;font-weight:900;background:#dcfce7 !important;border-radius:8px}
+.prediction-wrong{color:#b91c1c !important;font-weight:900;background:#fee2e2 !important;border-radius:8px}
+.kv span.prediction-correct,.kv span.prediction-wrong{padding:2px 6px;justify-self:start}
+.match-order-table tr.date-band-a td{background:#f8fafc}
+.match-order-table tr.date-band-b td{background:#ffffff}
+.match-order-table tr.date-start td{border-top:3px solid #bae6fd}
+.match-order-table tr.date-start td:first-child{color:#075985;font-weight:900}
+.sticky-first-col .match-order-table tr.date-band-a td:first-child{background:#eef6ff}
+.sticky-first-col .match-order-table tr.date-band-b td:first-child{background:#fff}
+.match-order-table tr:hover td{background:#eaf6ff}
+.match-order-table td.prediction-correct{background:#dcfce7 !important;color:#15803d !important}
+.match-order-table td.prediction-wrong{background:#fee2e2 !important;color:#b91c1c !important}

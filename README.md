@@ -59,3 +59,14 @@ Keep the quotes and semicolon.
 When you change scores in the Google Sheet, the website will update automatically the next time someone loads or refreshes it. No GitHub upload is needed.
 
 If you later edit `Code.gs`, go to **Deploy → Manage deployments → Edit → New version → Deploy**. Otherwise Google may keep serving the old version.
+
+## Latest changes
+
+This version expects the `Predictions` sheet to use the newer structure:
+
+- Column A: date/match order, such as `13th - Match 2`
+- Column B: internal match/prediction code, such as `C1`
+- Column C: readable prediction label, such as `Brazil v Morocco`
+- Column D onwards: participant predictions
+
+Match result and score prediction views are ordered by Column A. Completed match predictions are coloured green for correct and red for wrong, using the `Game_Results` sheet. The front page also shows the latest completed match included in the results.
