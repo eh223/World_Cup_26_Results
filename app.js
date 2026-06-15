@@ -1,5 +1,5 @@
 // Paste your Google Apps Script /exec URL between the quotes.
-// Example: const DATA_URL = 'https://script.google.com/macros/s/AKfycbwXL4TerukipOODx2-DfGFyNDDvUP7c6_mrRWWAWSKzUKJllTyuNY0k_b53aYGYx1pk/exec';
+// Example: const DATA_URL = 'https://script.google.com/macros/s/AKfycbz6tA1YWx-Dk-UKRv2Zcby-RNyFATIBYzeu5a5j6ygjTpDXsRa-hujGGYZAL9G9To3P/exec';
 const DATA_URL = 'PASTE_YOUR_GOOGLE_APPS_SCRIPT_URL_HERE';
 
 let STATE = { summary: null, predictionSections: [], participants: [] };
