@@ -1,6 +1,10 @@
-// Paste your Google Apps Script /exec URL between the quotes.
+// =====================================================
+// CONFIGURATION - EDIT ONLY THIS SECTION
+// =====================================================
+// Paste your Google Apps Script Web App /exec URL between the quotes.
 // Example: const DATA_URL = 'https://script.google.com/macros/s/AKfycb.../exec';
-const DATA_URL = 'https://script.google.com/macros/s/AKfycbw0SJml5YcUY5IzaeFTDwQrNrL1JmuxGNTUch2y2NSQ43wfCImSUYBjkz2aJi1abauYZQ/exec';
+const DATA_URL = 'https://script.google.com/macros/s/AKfycbwWPWpTtL7xZElFgU6oy0a0-6xxnPwChQvaCVf54HEgiYDOj84nCRZSxi3QyYXULYjw/exec';
+// =====================================================
 
 let STATE = { summary: null, predictionSections: [], participants: [] };
 
@@ -41,6 +45,10 @@ function cellContent(cell) {
   if (cell && typeof cell === 'object' && !Array.isArray(cell)) return cell.value ?? '';
   return cell;
 }
+function cellHtml(cell) {
+  if (cell && typeof cell === 'object' && !Array.isArray(cell) && cell.html !== undefined) return cell.html;
+  return esc(cellContent(cell));
+}
 function cellClass(cell, extra = '') {
   const classes = [];
   const value = cellContent(cell);
@@ -55,7 +63,7 @@ function buildTable(headers, rows, opts = {}) {
   const cellExtraClass = opts.cellClass || (() => '');
   return `<table class="${cls}"><thead><tr>${headers.map(h => `<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${rows.map((row, rIdx) => `<tr class="${rowClass(row, rIdx)}">${row.map((cell, i) => {
     const klass = cellClass(cell, cellExtraClass(cell, i, row, rIdx));
-    return `<td class="${klass}">${esc(cellContent(cell))}</td>`;
+    return `<td class="${klass}">${cellHtml(cell)}</td>`;
   }).join('')}</tr>`).join('')}</tbody></table>`;
 }
 
@@ -64,20 +72,23 @@ function buildMatchDateLookup() {
   const table = trimTable(STATE.summary?.matchDates || []);
   const byMatch = {};
   const byCode = {};
+  const entries = [];
   table.forEach((r, idx) => {
     const dateLabel = clean(r[0]);
     const matchLabel = clean(r[1]);
-    if (!dateLabel || !matchLabel) return;
-    byMatch[normaliseMatchLabel(matchLabel)] = dateLabel;
+    if (!dateLabel && !matchLabel) return;
+    const entry = { dateLabel, matchLabel, orderIndex: idx };
+    entries.push(entry);
+    if (matchLabel) byMatch[normaliseMatchLabel(matchLabel)] = entry;
     // If this sheet is in the same order as A1-A6, B1-B6, etc, keep a fallback by code too.
     const groupIndex = Math.floor((idx - 1) / 6);
     const matchNum = ((idx - 1) % 6) + 1;
     if (groupIndex >= 0 && groupIndex < 12) {
       const code = String.fromCharCode(65 + groupIndex) + matchNum;
-      byCode[code] = dateLabel;
+      byCode[code] = entry;
     }
   });
-  return { byMatch, byCode };
+  return { byMatch, byCode, entries };
 }
 
 function normaliseMatchLabel(label) {
@@ -91,6 +102,9 @@ function parseMatchDateLabel(label) {
 }
 
 function compareMatchOrder(a, b) {
+  const ai = Number.isFinite(a.orderIndex) ? a.orderIndex : null;
+  const bi = Number.isFinite(b.orderIndex) ? b.orderIndex : null;
+  if (ai !== null && bi !== null && ai !== bi) return ai - bi;
   const ao = parseMatchDateLabel(a.dateLabel || a.orderLabel || '');
   const bo = parseMatchDateLabel(b.dateLabel || b.orderLabel || '');
   return ao.day - bo.day || ao.match - bo.match || (a.key || '').localeCompare(b.key || '');
@@ -102,8 +116,9 @@ function displayMatchLabel(item) {
 
 function actualResultsMap() {
   const table = trimTable(STATE.summary?.gameResults || []);
+  const dates = buildMatchDateLookup();
   const map = {};
-  table.slice(1).forEach(r => {
+  table.slice(1).forEach((r, rowIndex) => {
     const key = clean(r[0]);
     if (!key) return;
     const match = clean(r[1]);
@@ -111,8 +126,10 @@ function actualResultsMap() {
     const score = clean(r[6]);
     const firstGoals = clean(r[7]);
     const secondGoals = clean(r[8]);
-    const complete = winner && winner !== 'N/A' && winner !== '-' && firstGoals !== '' && secondGoals !== '';
-    map[key] = { key, match, winner, score, complete };
+    const playedFlag = clean(r[19]);
+    const complete = winner && winner !== 'N/A' && winner !== '-' && firstGoals !== '' && secondGoals !== '' && playedFlag !== '0';
+    const dateEntry = dates.byMatch[normaliseMatchLabel(match)] || dates.byCode[key] || {};
+    map[key] = { key, match, winner, score, complete, rowIndex, dateLabel: dateEntry.dateLabel || '', orderIndex: dateEntry.orderIndex };
   });
   return map;
 }
@@ -127,22 +144,22 @@ function predictionCell(value, row) {
 }
 
 function latestCompletedMatch() {
-  const actual = actualResultsMap();
-  const resultRows = (STATE.predictionSections.find(s => s.id === 'results')?.rows || []);
-  let latest = null;
-  resultRows.forEach((row, idx) => {
-    const a = actual[row.key];
-    if (!a || !a.complete) return;
-    latest = { ...row, idx, match: a.match || row.label };
+  const completed = Object.values(actualResultsMap()).filter(a => a.complete);
+  if (!completed.length) return null;
+  completed.sort((a, b) => {
+    const ai = Number.isFinite(a.orderIndex) ? a.orderIndex : -1;
+    const bi = Number.isFinite(b.orderIndex) ? b.orderIndex : -1;
+    if (ai !== bi) return ai - bi;
+    return (a.rowIndex || 0) - (b.rowIndex || 0);
   });
-  return latest;
+  return completed[completed.length - 1];
 }
 
 function renderUpdatedToInclude() {
   const latest = latestCompletedMatch();
   const el = $('lastIncluded');
   if (!el) return;
-  el.textContent = latest ? `${latest.dateLabel || latest.key} — ${latest.match || latest.label}` : 'No completed matches yet';
+  el.textContent = latest ? `${latest.dateLabel || latest.key} — ${latest.match || latest.label || ''}` : 'No completed matches yet';
 }
 
 function buildMatchPredictionsTable(headers, rows) {
@@ -182,15 +199,53 @@ function trimTable(table) {
   return rows.map(r => r.slice(0, maxCol));
 }
 
+function formatCategoryHeader(category) {
+  const c = clean(category);
+  if (c.toLowerCase() === 'teams qualified') return 'Teams qualified *';
+  if (['team goals for', 'team goals against', 'scorers goals'].includes(c.toLowerCase())) return `${c} **`;
+  return c;
+}
+
+function formatScoreWithRemaining(raw, remaining) {
+  const main = clean(raw) || '0';
+  const rem = clean(remaining);
+  if (!rem) return main;
+  return { value: main, html: `${esc(main)} <span class="remaining-points">(${esc(rem)})</span>` };
+}
+
 function parseScoreboard(table) {
   table = trimTable(table);
   const header = table[0] || [];
-  const players = header.slice(1).filter(name => name && clean(name).toLowerCase() !== 'points');
+  let playerEnd = header.length;
+  for (let i = 1; i < header.length; i++) {
+    if (!clean(header[i])) { playerEnd = i; break; }
+  }
+  const players = header.slice(1, playerEnd).filter(name => name && clean(name).toLowerCase() !== 'points');
   const rows = table.slice(1).filter(r => clean(r[0]));
-  const totalRow = rows.find(r => clean(r[0]).toLowerCase() === 'total') || [];
+  const totalIdx = rows.findIndex(r => clean(r[0]).toLowerCase() === 'total');
+  const scoreRows = totalIdx >= 0 ? rows.slice(0, totalIdx + 1) : rows;
+  const extraRows = totalIdx >= 0 ? rows.slice(totalIdx + 1) : [];
+  const extrasByName = Object.fromEntries(extraRows.map(r => [clean(r[0]).toLowerCase(), r]));
+  const totalRow = scoreRows.find(r => clean(r[0]).toLowerCase() === 'total') || [];
+  const extraMap = {
+    'Teams qualified': 'total predicting points left',
+    'Team Goals For': 'total team scorers left',
+    'Team Goals Against': 'total team conceders left',
+    'Scorers Goals': 'total indiv scorers left'
+  };
   return players.map((name, idx) => {
     const col = idx + 1;
-    const categories = rows.map(r => ({ category: r[0], points: Number(r[col]) || 0, raw: r[col] || '0' }));
+    const categories = scoreRows.map(r => {
+      const category = r[0];
+      const extraRow = extrasByName[extraMap[category]] || (category === 'Scorers Goals' ? extrasByName['total india scorers left'] : null);
+      return {
+        category,
+        header: formatCategoryHeader(category),
+        points: Number(r[col]) || 0,
+        raw: r[col] || '0',
+        remaining: extraRow ? (extraRow[col] || '') : ''
+      };
+    });
     const total = Number(totalRow[col]) || categories.reduce((sum, r) => sum + (r.category.toLowerCase() === 'total' ? 0 : r.points), 0);
     return { name, total, categories };
   }).sort((a, b) => b.total - a.total || a.name.localeCompare(b.name));
@@ -201,12 +256,16 @@ function renderLeaderboard() {
   const q = clean($('leaderboardSearch').value).toLowerCase();
   const labels = Object.fromEntries(rankLabels(board).map(r => [r.name, r.label]));
   const filtered = board.filter(p => p.name.toLowerCase().includes(q));
-  const headers = ['Rank', 'Player', 'Total'].concat((board[0]?.categories || []).filter(c => c.category.toLowerCase() !== 'total').map(c => c.category));
+  const visibleCategories = (board[0]?.categories || []).filter(c => c.category.toLowerCase() !== 'total');
+  const headers = ['Rank', 'Player', 'Total'].concat(visibleCategories.map(c => c.header || c.category));
   const rows = filtered.map((p) => {
-    const cat = p.categories.filter(c => c.category.toLowerCase() !== 'total').map(c => c.raw);
+    const cat = p.categories
+      .filter(c => c.category.toLowerCase() !== 'total')
+      .map(c => formatScoreWithRemaining(c.raw, c.remaining));
     return [labels[p.name] || '', p.name, p.total, ...cat];
   });
-  $('leaderboardTable').innerHTML = buildTable(headers, rows, { className: 'leaderboard-table' });
+  $('leaderboardTable').innerHTML = buildTable(headers, rows, { className: 'leaderboard-table' }) +
+    '<p class="scoreboard-footnote">* Total possible predicting points remaining. ** Total teams/individual scorers remaining.</p>';
 }
 
 function parsePredictions(table) {
@@ -246,9 +305,10 @@ function parsePredictions(table) {
     const firstLooksLikeDate = /^\d+(?:st|nd|rd|th)?\s*-\s*Match\s*\d+/i.test(first);
     const key = firstLooksLikeDate ? second : first;
     const label = firstLooksLikeDate ? (third || key) : (second || key);
-    const dateLabel = firstLooksLikeDate ? first : (matchDates.byMatch[normaliseMatchLabel(label)] || matchDates.byCode[key] || '');
+    const dateEntry = firstLooksLikeDate ? { dateLabel: first, orderIndex: originalIndex } : (matchDates.byMatch[normaliseMatchLabel(label)] || matchDates.byCode[key] || {});
+    const dateLabel = dateEntry.dateLabel || '';
     const values = participants.map((p, i) => ({ person: p, value: clean(r[i + playerStart]) }));
-    const item = { key, label, dateLabel, values, originalIndex };
+    const item = { key, label, dateLabel, orderIndex: dateEntry.orderIndex, values, originalIndex };
     if (/^[A-L][1-6]$/i.test(key)) {
       seenMatchCodes[key] = (seenMatchCodes[key] || 0) + 1;
       const predictionType = seenMatchCodes[key] === 1 ? 'result' : 'score';

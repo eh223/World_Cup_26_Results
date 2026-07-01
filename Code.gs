@@ -1,3 +1,21 @@
+// =====================================================
+// CONFIGURATION - EDIT ONLY THIS SECTION
+// =====================================================
+// Paste only the spreadsheet ID here, not the full Google Sheets URL.
+// Example: const SPREADSHEET_ID = '1qfWV73gg20PFDuBllVcIj2YhNd9hSg1nndhsNdJ7FhQ';
+const SPREADSHEET_ID = '1qfWV73gg20PFDuBllVcIj2YhNd9hSg1nndhsNdJ7FhQ';
+
+// Sheet names used by the results website.
+// Only change these if you rename tabs in the Google Sheet.
+const SHEET_PREDICTIONS = 'Predictions';
+const SHEET_SCOREBOARD = 'Scoreboard';
+const SHEET_GAME_RESULTS = 'Game_Results';
+const SHEET_MATCH_DATES = 'Match dates';
+const SHEET_TEAMS = 'Teams';
+const SHEET_SCORERS = 'Scorers';
+const SHEET_BONUS = 'Bonus Qs';
+// =====================================================
+
 function doGet(e) {
   const params = e && e.parameter ? e.parameter : {};
   const mode = params.mode || 'summary';
@@ -20,17 +38,15 @@ function doGet(e) {
 function getSummary_() {
   return {
     generatedAt: new Date().toISOString(),
-    predictions: getSheetValues_('Predictions'),
-    scoreboard: getSheetValues_('Scoreboard'),
-    gameResults: getSheetValues_('Game_Results'),
-    matchDates: getSheetValues_('Match dates'),
-    teams: getSheetValues_('Teams'),
-    scorers: getSheetValues_('Scorers'),
-    bonus: getSheetValues_('Bonus Qs')
+    predictions: getSheetValues_(SHEET_PREDICTIONS),
+    scoreboard: getSheetValues_(SHEET_SCOREBOARD),
+    gameResults: getSheetValues_(SHEET_GAME_RESULTS),
+    matchDates: getSheetValues_(SHEET_MATCH_DATES),
+    teams: getSheetValues_(SHEET_TEAMS),
+    scorers: getSheetValues_(SHEET_SCORERS),
+    bonus: getSheetValues_(SHEET_BONUS)
   };
 }
-
-const SPREADSHEET_ID = 'PASTE_YOUR_SPREADSHEET_ID_HERE';
 
 function getSpreadsheet_() {
   if (SPREADSHEET_ID && SPREADSHEET_ID.indexOf('PASTE_') === -1) {

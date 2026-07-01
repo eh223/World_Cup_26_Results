@@ -66,3 +66,4 @@ select,input.search{border:1px solid #cbd5e1;border-radius:999px;padding:8px 12p
 .match-order-table tr:hover td{background:#eaf6ff}
 .match-order-table td.prediction-correct{background:#dcfce7 !important;color:#15803d !important}
 .match-order-table td.prediction-wrong{background:#fee2e2 !important;color:#b91c1c !important}
+.remaining-points{color:#dc2626;font-weight:900;white-space:nowrap}.scoreboard-footnote{margin:10px 2px 0;color:#64748b;font-size:.84rem}.leaderboard-table th{vertical-align:bottom}
